@@ -3,22 +3,41 @@ import type { AccessPoint } from '../types/point';
 import type { Inspection } from '../types/inspection';
 import type { RouteSegment } from '../types/route';
 import type { RectifyPlan } from '../types/rectify';
+import type { SyncEntity } from '../types/handover';
 import { addDays, makeId, todayStr, toPlain } from '../utils/format';
 import { judgeInspection } from '../utils/routeCheck';
 
 export const DB_NAME = 'gbaccessmap-db';
+
+/** 最后一次从服务端拉到的实体快照（三路合并的 base 来源之一） */
+export interface SyncBaseRow {
+  id: string;
+  entity: SyncEntity;
+  snapshot: Record<string, unknown>;
+}
+
+/** 本机未同步改动：base 为首次改动前的值（null 表示本机新建） */
+export interface SyncDirtyRow {
+  id: string;
+  entity: SyncEntity;
+  base: Record<string, unknown> | null;
+  changedAt: string;
+}
 
 /**
  * 浏览器本地库：IndexedDB（Dexie）
  * v1 建 points / inspections
  * v2 加 routes 表与 pointId 索引
  * v3 加 rectifies 表，并为历史不合格核验补建整改条目
+ * v4 加 syncBase / syncDirty 两张离线交接表（断网改动留在本机，恢复后按点位编号合并）
  */
 class AccessMapDb extends Dexie {
   points!: Table<AccessPoint, string>;
   inspections!: Table<Inspection, string>;
   routes!: Table<RouteSegment, string>;
   rectifies!: Table<RectifyPlan, string>;
+  syncBase!: Table<SyncBaseRow, string>;
+  syncDirty!: Table<SyncDirtyRow, string>;
 
   constructor() {
     super(DB_NAME);
@@ -72,10 +91,41 @@ class AccessMapDb extends Dexie {
           });
         }
       });
+    this.version(4).stores({
+      points: 'id, code, facilityType, district, name',
+      inspections: 'id, pointId, date, conclusion',
+      routes: 'id, routeName, fromPointId, toPointId, order',
+      rectifies: 'id, pointId, status, deadline',
+      syncBase: 'id, entity',
+      syncDirty: 'id, entity, changedAt',
+    });
   }
 }
 
 export const db = new AccessMapDb();
+
+/**
+ * 把一次本机改动标记为待同步。
+ * 首次标记时记录 base：优先取 syncBase 里的服务端快照（三路合并基准），
+ * 没有则用改动前的本机值；新建实体传 null。
+ * 同一实体连续改动只保留最早的 base，保证「改动前 vs 改动后」口径一致。
+ */
+export async function markDirty(
+  entity: SyncEntity,
+  id: string,
+  preEdit: object | null,
+): Promise<void> {
+  const existing = await db.syncDirty.get(id);
+  if (existing) return;
+  const baseRow = await db.syncBase.get(id);
+  const base = baseRow ? baseRow.snapshot : preEdit;
+  await db.syncDirty.put({
+    id,
+    entity,
+    base: base ? (toPlain(base) as Record<string, unknown>) : null,
+    changedAt: new Date().toISOString(),
+  });
+}
 
 const SEED_POINTS: Omit<AccessPoint, 'createdAt' | 'updatedAt'>[] = [
   {

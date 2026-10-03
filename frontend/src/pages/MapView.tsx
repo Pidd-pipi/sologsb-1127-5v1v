@@ -20,7 +20,9 @@ export default function MapView() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const visible = useMemo(
-    () => (typeFilter ? points.filter((p) => p.facilityType === typeFilter) : points),
+    () =>
+      // 未裁决冲突点位不进地图；旧数据（无区域编号）照常展示
+      points.filter((p) => !p.conflictPending && (!typeFilter || p.facilityType === typeFilter)),
     [points, typeFilter],
   );
 

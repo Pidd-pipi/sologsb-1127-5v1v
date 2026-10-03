@@ -33,7 +33,7 @@ export const MAINTAIN_UNITS = [
 /** 设施点位 */
 export interface AccessPoint {
   id: string;
-  /** 点位编号，例：WZ-2024-001 */
+  /** 点位编号，例：WZ-2024-001（多机合并时的合并键） */
   code: string;
   name: string;
   facilityType: FacilityType;
@@ -45,6 +45,12 @@ export interface AccessPoint {
   /** 建成年代 */
   builtYear: number;
   maintainUnit: string;
+  /** 区域编号（督导认领分组用；旧数据可没有，仍照常展示） */
+  regionNo?: string;
+  /** 存在未裁决字段冲突时为 true：不进总览和地图 */
+  conflictPending?: boolean;
+  /** 最近一次合并写入者（服务端下发） */
+  updatedBy?: { userId: string; userName: string; at: string };
   createdAt: string;
   updatedAt: string;
 }

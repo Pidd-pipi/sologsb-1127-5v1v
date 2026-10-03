@@ -24,6 +24,7 @@ import StatusBadge from '../components/common/StatusBadge';
 import FacilityIcon from '../components/common/FacilityIcon';
 import { useLocalDraft } from '../hooks/useLocalDraft';
 import { usePointStore } from '../stores/pointStore';
+import { useHandoverStore } from '../stores/handoverStore';
 import {
   DISTRICTS,
   FACILITY_TYPES,
@@ -43,6 +44,7 @@ interface PointForm {
   location: string;
   builtYear: number;
   maintainUnit: string;
+  regionNo: string;
   lng: number;
   lat: number;
   withFirstInspection: boolean;
@@ -66,6 +68,7 @@ function defaultForm(): PointForm {
     location: '',
     builtYear: new Date().getFullYear() - 5,
     maintainUnit: MAINTAIN_UNITS[0],
+    regionNo: '',
     lng: 116.4183,
     lat: 39.9142,
     withFirstInspection: true,
@@ -87,6 +90,7 @@ export default function PointNew() {
   const addPoint = usePointStore((s) => s.addPoint);
   const addInspection = usePointStore((s) => s.addInspection);
   const points = usePointStore((s) => s.points);
+  const regions = useHandoverStore((s) => s.regions);
   const [submitting, setSubmitting] = useState(false);
 
   const judgement = useMemo(
@@ -142,6 +146,7 @@ export default function PointNew() {
         location: draft.location.trim(),
         builtYear: draft.builtYear,
         maintainUnit: draft.maintainUnit,
+        regionNo: draft.regionNo || undefined,
         lng: Number(draft.lng),
         lat: Number(draft.lat),
       });
@@ -267,6 +272,22 @@ export default function PointNew() {
                       value={draft.maintainUnit}
                       onChange={(v) => patch({ maintainUnit: v })}
                       options={MAINTAIN_UNITS.map((u) => ({ value: u, label: u }))}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="区域编号（选填，旧数据可不分区）">
+                    <Select
+                      id="regionNo"
+                      allowClear
+                      placeholder="不分区"
+                      value={draft.regionNo || undefined}
+                      onChange={(v) => patch({ regionNo: v ?? '' })}
+                      options={regions.map((r) => ({
+                        value: r.regionNo,
+                        label: `${r.regionNo} ${r.name}`,
+                      }))}
+                      notFoundContent="离线时暂无可选区域"
                     />
                   </Form.Item>
                 </Col>

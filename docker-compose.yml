@@ -1,5 +1,17 @@
 name: gbaccessmap
 services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-gbaccessmap}-server:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-gbaccessmap}-server
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+      - PORT=4021
+      - DATA_FILE=/app/data/db.json
+    # 不对外暴露端口，仅经前端 nginx 反代 /api 访问；容器无状态，重建即重置合并数据
   frontend:
     build:
       context: ./frontend
@@ -7,6 +19,8 @@ services:
     image: ${COMPOSE_PROJECT_NAME:-gbaccessmap}-frontend:latest
     container_name: ${COMPOSE_PROJECT_NAME:-gbaccessmap}-frontend
     restart: unless-stopped
+    depends_on:
+      - server
     ports:
       - "${FRONTEND_PORT:-21827}:80"
     environment:

@@ -225,6 +225,11 @@ export default function PointDetail() {
               {point.name}
             </h1>
             <StatusBadge value={latest?.conclusion ?? '未核验'} kind="conclusion" bordered />
+            {point.conflictPending ? (
+              <Tag color="red" data-testid="conflict-pending-tag">
+                待裁决
+              </Tag>
+            ) : null}
           </Space>
           <Typography.Text type="secondary">
             {point.code} · {point.district} · {point.location || '未填写所在道路或建筑'}
@@ -254,6 +259,9 @@ export default function PointDetail() {
                 <FacilityIcon type={point.facilityType} withLabel />
               </Descriptions.Item>
               <Descriptions.Item label="行政区">{point.district}</Descriptions.Item>
+              <Descriptions.Item label="区域编号">
+                {point.regionNo || '未分区（旧数据）'}
+              </Descriptions.Item>
               <Descriptions.Item label="所在道路或建筑">{point.location || '—'}</Descriptions.Item>
               <Descriptions.Item label="建成年代">{point.builtYear} 年</Descriptions.Item>
               <Descriptions.Item label="养护单位">{point.maintainUnit}</Descriptions.Item>

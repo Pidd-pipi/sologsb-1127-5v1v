@@ -37,6 +37,8 @@ export function useInspectionFilter(): InspectionFilterResult {
   const filteredPoints = useMemo(
     () =>
       points.filter((p) => {
+        // 有未裁决字段冲突的点位不进入总览（旧数据没有区域编号不受影响）
+        if (p.conflictPending) return false;
         if (filter.district && p.district !== filter.district) return false;
         if (filter.facilityType && p.facilityType !== filter.facilityType) return false;
         return true;

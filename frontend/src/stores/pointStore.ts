@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { db, ensureSeed } from '../db';
+import { db, ensureSeed, markDirty } from '../db';
 import type { AccessPoint, AccessPointDraft } from '../types/point';
 import type { Inspection, InspectionDraft } from '../types/inspection';
 import type { RectifyPlan, RectifyPlanDraft } from '../types/rectify';
@@ -60,6 +60,7 @@ export const usePointStore = create<PointState>((set, get) => ({
       updatedAt: now,
     });
     await db.points.put(point);
+    await markDirty('point', point.id, null);
     set((s) => ({ points: [...s.points, point].sort((a, b) => a.code.localeCompare(b.code)) }));
     return point;
   },
@@ -71,6 +72,7 @@ export const usePointStore = create<PointState>((set, get) => ({
       createdAt: new Date().toISOString(),
     });
     await db.inspections.put(inspection);
+    await markDirty('inspection', inspection.id, null);
     set((s) => ({
       inspections: [inspection, ...s.inspections].sort((a, b) => (a.date < b.date ? 1 : -1)),
     }));
@@ -100,6 +102,7 @@ export const usePointStore = create<PointState>((set, get) => ({
       createdAt: new Date().toISOString(),
     });
     await db.rectifies.put(plan);
+    await markDirty('rectify', plan.id, null);
     set((s) => ({
       rectifies: [...s.rectifies, plan].sort((a, b) => (a.deadline < b.deadline ? -1 : 1)),
     }));
@@ -108,7 +111,9 @@ export const usePointStore = create<PointState>((set, get) => ({
 
   updateRectify: async (id, patch) => {
     const plain = toPlain(patch);
+    const prev = get().rectifies.find((r) => r.id === id);
     await db.rectifies.update(id, plain);
+    await markDirty('rectify', id, prev ? toPlain(prev) : null);
     set((s) => ({
       rectifies: s.rectifies.map((r) => (r.id === id ? { ...r, ...plain } : r)),
     }));

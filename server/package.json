@@ -1,0 +1,15 @@
+{
+  "name": "gbaccessmap-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "离线核验交接服务端：区域认领、按点位编号合并、字段级冲突裁决",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
