@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import {
+  Alert,
   Button,
   Card,
   Col,
@@ -45,9 +46,12 @@ export default function Overview() {
     pendingRectifies,
     latestByPoint,
     passRate,
+    gate,
+    blockedCount,
   } = useInspectionFilter();
   const drill = useUiStore((s) => s.drill);
   const setDrill = useUiStore((s) => s.setDrill);
+  const pendingConflictCount = gate.pendingConflicts.length;
 
   const districtRows = useMemo<GroupRow[]>(
     () =>
@@ -207,6 +211,17 @@ export default function Overview() {
           </Button>
         </Space>
       </div>
+
+      {blockedCount > 0 ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          data-testid="overview-blocked-alert"
+          message={`${blockedCount} 个点位存在 ${pendingConflictCount} 个未裁决字段冲突，裁决前不计入合格率、待整改等总览统计`}
+          description={<Link to="/handoff">前往「现场交接」查看两份保留值与来源并裁决</Link>}
+        />
+      ) : null}
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>

@@ -45,6 +45,8 @@ export interface AccessPoint {
   /** 建成年代 */
   builtYear: number;
   maintainUnit: string;
+  /** 核验片区编号；旧数据可能没有，留空仍照常展示 */
+  areaCode?: string;
   createdAt: string;
   updatedAt: string;
 }

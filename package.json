@@ -1,0 +1,14 @@
+{
+  "name": "gbaccessmap-hub",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "老城区无障碍核验离线交接：区域领取仲裁 + 断网本机保存 + 按点位编号字段级合并",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test server/test/"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

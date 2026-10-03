@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, Card, Col, Descriptions, Drawer, List, Row, Select, Space, Tag, Typography } from 'antd';
+import { Button, Card, Col, Descriptions, Drawer, List, Row, Select, Space, Tag, Typography, Alert } from 'antd';
 import { Link } from 'react-router-dom';
 import MapPanel from '../components/common/MapPanel';
 import FacilityIcon from '../components/common/FacilityIcon';
@@ -7,13 +7,16 @@ import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
 import { usePointStore } from '../stores/pointStore';
 import { useUiStore } from '../stores/uiStore';
+import { filterVisiblePoints, useConflictGate } from '../hooks/useConflictGate';
 import { FACILITY_TYPES, type AccessPoint } from '../types/point';
 import { isOverdue } from '../utils/format';
 
 export default function MapView() {
-  const points = usePointStore((s) => s.points);
+  const allPoints = usePointStore((s) => s.points);
   const inspections = usePointStore((s) => s.inspections);
   const rectifies = usePointStore((s) => s.rectifies);
+  const gate = useConflictGate();
+  const points = useMemo(() => filterVisiblePoints(allPoints, gate), [allPoints, gate]);
   const typeFilter = useUiStore((s) => s.mapFacilityFilter);
   const setTypeFilter = useUiStore((s) => s.setMapFacilityFilter);
   const [activeId, setActiveId] = useState('');
@@ -60,6 +63,19 @@ export default function MapView() {
           </Tag>
         </Space>
       </div>
+
+      {gate.pendingConflicts.length ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          data-testid="map-blocked-alert"
+          message={`${gate.pendingConflicts.length} 个字段冲突尚未裁决，涉及点位在裁决前不上图`}
+          description={
+            <Link to="/handoff">前往「现场交接」逐条裁决（保留两份值并标了来源，裁决后自动上图）</Link>
+          }
+        />
+      ) : null}
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={17}>
@@ -134,6 +150,7 @@ export default function MapView() {
                 <FacilityIcon type={active.facilityType} withLabel />
               </Descriptions.Item>
               <Descriptions.Item label="行政区">{active.district}</Descriptions.Item>
+              <Descriptions.Item label="核验片区">{active.areaCode ?? '未编号（旧数据）'}</Descriptions.Item>
               <Descriptions.Item label="位置">{active.location || '—'}</Descriptions.Item>
               <Descriptions.Item label="养护单位">{active.maintainUnit}</Descriptions.Item>
               <Descriptions.Item label="经纬度">

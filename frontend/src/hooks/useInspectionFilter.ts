@@ -5,6 +5,7 @@ import type { AccessPoint } from '../types/point';
 import type { Inspection } from '../types/inspection';
 import type { RectifyPlan } from '../types/rectify';
 import { isOverdue } from '../utils/format';
+import { filterVisiblePoints, useConflictGate, type ConflictGate } from './useConflictGate';
 
 export interface InspectionFilterResult {
   filter: InspectionFilter;
@@ -21,6 +22,10 @@ export interface InspectionFilterResult {
   latestByPoint: Map<string, Inspection>;
   /** 各单位/类型统计用：合格率 */
   passRate: number;
+  /** 未裁决冲突门禁（未裁决点位不进总览与地图） */
+  gate: ConflictGate;
+  /** 未裁决被屏蔽的点位数 */
+  blockedCount: number;
 }
 
 /** 行政区 / 类型 / 结论 / 日期筛选（被 / 与 /rectify 消费） */
@@ -28,9 +33,14 @@ export function useInspectionFilter(): InspectionFilterResult {
   const filter = useUiStore((s) => s.filter);
   const setFilter = useUiStore((s) => s.setFilter);
   const resetFilter = useUiStore((s) => s.resetFilter);
-  const points = usePointStore((s) => s.points);
+  const allPoints = usePointStore((s) => s.points);
   const inspections = usePointStore((s) => s.inspections);
   const rectifies = usePointStore((s) => s.rectifies);
+  const gate = useConflictGate();
+
+  // 未裁决冲突的点位（含子记录冲突）先整体屏蔽，再做业务筛选
+  const points = useMemo(() => filterVisiblePoints(allPoints, gate), [allPoints, gate]);
+  const blockedCount = allPoints.length - points.length;
 
   const pointMap = useMemo(() => new Map(points.map((p) => [p.id, p])), [points]);
 
@@ -101,6 +111,8 @@ export function useInspectionFilter(): InspectionFilterResult {
     pointMap,
     latestByPoint,
     passRate,
+    gate,
+    blockedCount,
   };
 }
 

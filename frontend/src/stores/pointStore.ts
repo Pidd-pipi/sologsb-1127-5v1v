@@ -4,6 +4,7 @@ import type { AccessPoint, AccessPointDraft } from '../types/point';
 import type { Inspection, InspectionDraft } from '../types/inspection';
 import type { RectifyPlan, RectifyPlanDraft } from '../types/rectify';
 import { makeId, toPlain, todayStr } from '../utils/format';
+import { enqueueChange } from '../sync/outbox';
 
 interface PointState {
   points: AccessPoint[];
@@ -13,6 +14,8 @@ interface PointState {
   loaded: boolean;
   error: string;
   load: () => Promise<void>;
+  /** 同步落库后从 IndexedDB 重新装载（保留已加载标记，不触发 seed） */
+  reload: () => Promise<void>;
   addPoint: (draft: AccessPointDraft) => Promise<AccessPoint>;
   addInspection: (draft: InspectionDraft) => Promise<Inspection>;
   addRectify: (draft: RectifyPlanDraft) => Promise<RectifyPlan>;
@@ -34,21 +37,24 @@ export const usePointStore = create<PointState>((set, get) => ({
     set({ loading: true, error: '' });
     try {
       await ensureSeed();
-      const [points, inspections, rectifies] = await Promise.all([
-        db.points.toArray(),
-        db.inspections.toArray(),
-        db.rectifies.toArray(),
-      ]);
-      set({
-        points: points.sort((a, b) => a.code.localeCompare(b.code)),
-        inspections: inspections.sort((a, b) => (a.date < b.date ? 1 : -1)),
-        rectifies: [...rectifies].sort((a, b) => (a.deadline < b.deadline ? -1 : 1)),
-        loading: false,
-        loaded: true,
-      });
+      await get().reload();
+      set({ loading: false, loaded: true });
     } catch (e) {
       set({ loading: false, loaded: true, error: e instanceof Error ? e.message : String(e) });
     }
+  },
+
+  reload: async () => {
+    const [points, inspections, rectifies] = await Promise.all([
+      db.points.toArray(),
+      db.inspections.toArray(),
+      db.rectifies.toArray(),
+    ]);
+    set({
+      points: points.sort((a, b) => a.code.localeCompare(b.code)),
+      inspections: inspections.sort((a, b) => (a.date < b.date ? 1 : -1)),
+      rectifies: [...rectifies].sort((a, b) => (a.deadline < b.deadline ? -1 : 1)),
+    });
   },
 
   addPoint: async (draft) => {
@@ -60,6 +66,7 @@ export const usePointStore = create<PointState>((set, get) => ({
       updatedAt: now,
     });
     await db.points.put(point);
+    await enqueueChange('point', point);
     set((s) => ({ points: [...s.points, point].sort((a, b) => a.code.localeCompare(b.code)) }));
     return point;
   },
@@ -71,6 +78,7 @@ export const usePointStore = create<PointState>((set, get) => ({
       createdAt: new Date().toISOString(),
     });
     await db.inspections.put(inspection);
+    await enqueueChange('inspection', inspection);
     set((s) => ({
       inspections: [inspection, ...s.inspections].sort((a, b) => (a.date < b.date ? 1 : -1)),
     }));
@@ -100,6 +108,7 @@ export const usePointStore = create<PointState>((set, get) => ({
       createdAt: new Date().toISOString(),
     });
     await db.rectifies.put(plan);
+    await enqueueChange('rectify', plan);
     set((s) => ({
       rectifies: [...s.rectifies, plan].sort((a, b) => (a.deadline < b.deadline ? -1 : 1)),
     }));
@@ -109,6 +118,8 @@ export const usePointStore = create<PointState>((set, get) => ({
   updateRectify: async (id, patch) => {
     const plain = toPlain(patch);
     await db.rectifies.update(id, plain);
+    const updated = await db.rectifies.get(id);
+    if (updated) await enqueueChange('rectify', updated);
     set((s) => ({
       rectifies: s.rectifies.map((r) => (r.id === id ? { ...r, ...plain } : r)),
     }));

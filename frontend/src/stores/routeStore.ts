@@ -5,6 +5,7 @@ import type { RouteSegment } from '../types/route';
 import { makeId, toPlain } from '../utils/format';
 import { judgeSegment, buildVerdict } from '../utils/routeCheck';
 import { segmentLength } from '../utils/geo';
+import { enqueueChange } from '../sync/outbox';
 import type { RouteVerdict } from '../types/route';
 
 /** 编辑中的路段（尚未落库） */
@@ -145,6 +146,7 @@ export const useRouteStore = create<RouteState>((set, get) => ({
     );
     if (!rows.length) return 0;
     await db.routes.bulkPut(rows);
+    for (const row of rows) await enqueueChange('route', row);
     const all = await db.routes.toArray();
     set({
       segments: all.sort((a, b) =>

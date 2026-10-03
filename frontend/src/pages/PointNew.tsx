@@ -34,6 +34,7 @@ import {
 import { OCCUPIED_LEVELS, type OccupiedLevel } from '../types/inspection';
 import { judgeInspection } from '../utils/routeCheck';
 import { todayStr } from '../utils/format';
+import { AREAS } from '../types/areas';
 
 interface PointForm {
   code: string;
@@ -43,6 +44,7 @@ interface PointForm {
   location: string;
   builtYear: number;
   maintainUnit: string;
+  areaCode?: string;
   lng: number;
   lat: number;
   withFirstInspection: boolean;
@@ -66,6 +68,7 @@ function defaultForm(): PointForm {
     location: '',
     builtYear: new Date().getFullYear() - 5,
     maintainUnit: MAINTAIN_UNITS[0],
+    areaCode: '',
     lng: 116.4183,
     lat: 39.9142,
     withFirstInspection: true,
@@ -113,6 +116,7 @@ export default function PointNew() {
       location: draft.location,
       builtYear: draft.builtYear,
       maintainUnit: draft.maintainUnit,
+      areaCode: draft.areaCode || undefined,
       createdAt: '',
       updatedAt: '',
     };
@@ -142,6 +146,7 @@ export default function PointNew() {
         location: draft.location.trim(),
         builtYear: draft.builtYear,
         maintainUnit: draft.maintainUnit,
+        areaCode: draft.areaCode || undefined,
         lng: Number(draft.lng),
         lat: Number(draft.lat),
       });
@@ -279,6 +284,18 @@ export default function PointNew() {
                       value={draft.builtYear}
                       onChange={(v) => patch({ builtYear: Number(v ?? 2020) })}
                       style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="核验片区（旧点位可留空）">
+                    <Select
+                      id="areaCode"
+                      allowClear
+                      placeholder="选择分组进楼的片区"
+                      value={draft.areaCode || undefined}
+                      onChange={(v) => patch({ areaCode: v ?? '' })}
+                      options={AREAS.map((a) => ({ value: a.code, label: `${a.name}（${a.code}）` }))}
                     />
                   </Form.Item>
                 </Col>

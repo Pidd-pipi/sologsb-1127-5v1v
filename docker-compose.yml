@@ -1,5 +1,25 @@
 name: gbaccessmap
 services:
+  hub:
+    # 区域领取仲裁 + 断网恢复后按点位编号的字段级合并 + 冲突裁决（零依赖 Node 服务）
+    image: node:20-alpine
+    workingDir: /app
+    command: node server/index.js
+    environment:
+      - TZ=Asia/Shanghai
+      - PORT=21828
+      - DATA_FILE=/data/state.json
+    volumes:
+      - ./server:/app/server:ro
+      - ./shared:/app/shared:ro
+      - hub-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:21828/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
   frontend:
     build:
       context: ./frontend
@@ -7,7 +27,12 @@ services:
     image: ${COMPOSE_PROJECT_NAME:-gbaccessmap}-frontend:latest
     container_name: ${COMPOSE_PROJECT_NAME:-gbaccessmap}-frontend
     restart: unless-stopped
+    depends_on:
+      - hub
     ports:
       - "${FRONTEND_PORT:-21827}:80"
     environment:
       - TZ=Asia/Shanghai
+
+volumes:
+  hub-data:

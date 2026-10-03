@@ -7,3 +7,5 @@ dist/
 .vscode/
 output/
 test-results/
+# 同步服务本机数据文件（docker 部署走命名卷）
+server/data/

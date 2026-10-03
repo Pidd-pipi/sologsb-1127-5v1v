@@ -3,22 +3,40 @@ import type { AccessPoint } from '../types/point';
 import type { Inspection } from '../types/inspection';
 import type { RouteSegment } from '../types/route';
 import type { RectifyPlan } from '../types/rectify';
+import type { FieldConflict, OutboxItem } from '../types/sync';
 import { addDays, makeId, todayStr, toPlain } from '../utils/format';
 import { judgeInspection } from '../utils/routeCheck';
 
 export const DB_NAME = 'gbaccessmap-db';
+
+/** syncMeta 表的键名 */
+export const META_CLIENT_ID = 'clientId';
+export const META_SERVER_REV = 'serverRev';
+export const META_LAST_SYNC = 'lastSyncAt';
+
+interface SyncMetaRow {
+  key: string;
+  value: string | number;
+}
 
 /**
  * 浏览器本地库：IndexedDB（Dexie）
  * v1 建 points / inspections
  * v2 加 routes 表与 pointId 索引
  * v3 加 rectifies 表，并为历史不合格核验补建整改条目
+ * v4 离线交接：points 加 areaCode 索引；新增 outbox（出站队列）、
+ *    conflicts（字段冲突）、syncMeta（同步游标）三张表
  */
 class AccessMapDb extends Dexie {
   points!: Table<AccessPoint, string>;
   inspections!: Table<Inspection, string>;
   routes!: Table<RouteSegment, string>;
   rectifies!: Table<RectifyPlan, string>;
+  outbox!: Table<OutboxItem, string>;
+  conflicts!: Table<FieldConflict, string>;
+  syncMeta!: Table<SyncMetaRow, string>;
+  /** 上次同步时的影子基线（三方合并用），key = `${kind}:${id}` */
+  shadows!: Table<{ key: string; kind: string; entityId: string; entity: unknown }, string>;
 
   constructor() {
     super(DB_NAME);
@@ -72,6 +90,18 @@ class AccessMapDb extends Dexie {
           });
         }
       });
+    this.version(4)
+      .stores({
+        points: 'id, code, facilityType, district, name, areaCode',
+        inspections: 'id, pointId, date, conclusion',
+        routes: 'id, routeName, fromPointId, toPointId, order',
+        rectifies: 'id, pointId, status, deadline',
+        outbox: 'key, kind, entityId, updatedAt',
+        conflicts: 'id, kind, pointCode, entityId, status',
+        syncMeta: 'key',
+        shadows: 'key, kind, entityId',
+      });
+      // 无需搬数据：areaCode 留空即旧数据；outbox/conflicts 起步为空
   }
 }
 
@@ -89,6 +119,7 @@ const SEED_POINTS: Omit<AccessPoint, 'createdAt' | 'updatedAt'>[] = [
     location: '东单北大街与灯市口大街交叉口东南角',
     builtYear: 2016,
     maintainUnit: '市政道路养护一所',
+    areaCode: 'A-DC-01',
   },
   {
     id: 'pt-1002',
@@ -101,6 +132,7 @@ const SEED_POINTS: Omit<AccessPoint, 'createdAt' | 'updatedAt'>[] = [
     location: '王府井大街南段 118 号门前',
     builtYear: 2018,
     maintainUnit: '市政道路养护二所',
+    areaCode: 'A-DC-01',
   },
   {
     id: 'pt-1003',

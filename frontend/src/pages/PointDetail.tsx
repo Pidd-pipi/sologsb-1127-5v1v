@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -30,6 +31,7 @@ import { OCCUPIED_LEVELS, type Inspection, type OccupiedLevel } from '../types/i
 import type { RectifyPlan } from '../types/rectify';
 import { judgeInspection } from '../utils/routeCheck';
 import { addDays, isOverdue, todayStr } from '../utils/format';
+import { useConflictGate } from '../hooks/useConflictGate';
 
 interface InlineInspection {
   date: string;
@@ -51,6 +53,7 @@ export default function PointDetail() {
   const loaded = usePointStore((s) => s.loaded);
   const addInspection = usePointStore((s) => s.addInspection);
   const addRectify = usePointStore((s) => s.addRectify);
+  const gate = useConflictGate();
 
   const point = useMemo(() => points.find((p) => p.id === id), [points, id]);
   const history = useMemo(
@@ -242,6 +245,21 @@ export default function PointDetail() {
         </Space>
       </div>
 
+      {gate.blockedPointIds.has(id) || (point.code && gate.blockedPointCodes.has(point.code)) ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="该点位存在未裁决的字段冲突"
+          description={
+            <>
+              两边都改过且取值不一致的字段已保留两份并标了来源，裁决前该点位不进入总览统计与设施地图。
+              <Link to="/handoff">前往「现场交接」裁决</Link>
+            </>
+          }
+        />
+      ) : null}
+
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={14}>
           <MapPanel points={[point]} selectedId={point.id} height={380} title="点位定位与周边" />
@@ -254,6 +272,7 @@ export default function PointDetail() {
                 <FacilityIcon type={point.facilityType} withLabel />
               </Descriptions.Item>
               <Descriptions.Item label="行政区">{point.district}</Descriptions.Item>
+              <Descriptions.Item label="核验片区">{point.areaCode ?? '未编号（旧数据照常展示）'}</Descriptions.Item>
               <Descriptions.Item label="所在道路或建筑">{point.location || '—'}</Descriptions.Item>
               <Descriptions.Item label="建成年代">{point.builtYear} 年</Descriptions.Item>
               <Descriptions.Item label="养护单位">{point.maintainUnit}</Descriptions.Item>
